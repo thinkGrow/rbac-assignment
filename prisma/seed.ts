@@ -2,7 +2,7 @@ import { PrismaClient, Role, Status } from '@prisma/client';
 // import bcrypt from 'bcrypt';
 import * as bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
 async function main() {
   const permissionsData = [
@@ -31,21 +31,21 @@ async function main() {
       label: 'Manage Permissions',
       module: 'permissions',
     },
-  ]
+  ];
 
   for (const permission of permissionsData) {
     await prisma.permission.upsert({
       where: { key: permission.key },
       update: {},
       create: permission,
-    })
+    });
   }
 
-  const allPermissions = await prisma.permission.findMany()
+  const allPermissions = await prisma.permission.findMany();
 
-const adminPassword = (await bcrypt.hash('admin123', 10)) as string;
-const managerPassword = (await bcrypt.hash('manager123', 10)) as string;
-const agentPassword = (await bcrypt.hash('agent123', 10)) as string;
+  const adminPassword = (await bcrypt.hash('admin123', 10)) as string;
+  const managerPassword = (await bcrypt.hash('manager123', 10)) as string;
+  const agentPassword = (await bcrypt.hash('agent123', 10)) as string;
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@demo.com' },
@@ -57,7 +57,7 @@ const agentPassword = (await bcrypt.hash('agent123', 10)) as string;
       role: Role.ADMIN,
       status: Status.ACTIVE,
     },
-  })
+  });
 
   const manager = await prisma.user.upsert({
     where: { email: 'manager@demo.com' },
@@ -69,7 +69,7 @@ const agentPassword = (await bcrypt.hash('agent123', 10)) as string;
       role: Role.MANAGER,
       status: Status.ACTIVE,
     },
-  })
+  });
 
   const agent = await prisma.user.upsert({
     where: { email: 'agent@demo.com' },
@@ -81,7 +81,7 @@ const agentPassword = (await bcrypt.hash('agent123', 10)) as string;
       role: Role.AGENT,
       status: Status.ACTIVE,
     },
-  })
+  });
 
   await prisma.userPermission.deleteMany({
     where: {
@@ -89,7 +89,7 @@ const agentPassword = (await bcrypt.hash('agent123', 10)) as string;
         in: [admin.id, manager.id, agent.id],
       },
     },
-  })
+  });
 
   await prisma.userPermission.createMany({
     data: [
@@ -113,24 +113,22 @@ const agentPassword = (await bcrypt.hash('agent123', 10)) as string;
         })),
 
       ...allPermissions
-        .filter((p) =>
-          ['dashboard.view', 'reports.view'].includes(p.key),
-        )
+        .filter((p) => ['dashboard.view', 'reports.view'].includes(p.key))
         .map((permission) => ({
           userId: agent.id,
           permissionId: permission.id,
         })),
     ],
-  })
+  });
 
-  console.log('Seed completed successfully')
+  console.log('Seed completed successfully');
 }
 
 main()
   .catch((error) => {
-    console.error(error)
-    process.exit(1)
+    console.error(error);
+    process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect()
-  })
+    await prisma.$disconnect();
+  });
