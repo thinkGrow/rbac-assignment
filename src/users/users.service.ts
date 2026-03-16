@@ -1,9 +1,13 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
+import { AuditService } from 'src/audit/audit.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async findAll() {
     const users = await this.prisma.user.findMany({
@@ -50,7 +54,26 @@ export class UsersService {
       throw new ForbiddenException('Acting user not found');
     }
 
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      include: {
+        userPermissions: {
+          include: {
+            permission: true,
+          },
+        },
+      },
+    });
+
+    if (!targetUser) {
+      throw new ForbiddenException('Target user not found');
+    }
+
     const actingPermissions = actingUser.userPermissions.map(
+      (up) => up.permission.key,
+    );
+
+    const previousPermissions = targetUser.userPermissions.map(
       (up) => up.permission.key,
     );
 
@@ -87,11 +110,25 @@ export class UsersService {
       });
     }
 
+    const assignedPermissions = permissionRecords.map(
+      (permission) => permission.key,
+    );
+
+    await this.auditService.log({
+      actorId: actingUserId,
+      action: 'UPDATE_PERMISSIONS',
+      entityType: 'USER',
+      entityId: targetUserId,
+      metadata: {
+        targetUserEmail: targetUser.email,
+        previousPermissions,
+        assignedPermissions,
+      },
+    });
+
     return {
       message: 'Permissions updated successfully',
-      assignedPermissions: permissionRecords.map(
-        (permission) => permission.key,
-      ),
+      assignedPermissions,
     };
   }
 }
